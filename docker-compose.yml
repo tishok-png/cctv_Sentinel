@@ -1,0 +1,36 @@
+# Production stack: Sentinel (API + dashboard) behind Caddy, which gets a free HTTPS certificate.
+#   cp deploy/server.env.example .env   # fill it in
+#   docker compose up -d --build
+services:
+  sentinel:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SENTINEL_MODE: api
+      SENTINEL_ENV: production
+      SENTINEL_TRUST_PROXY: "1"
+    volumes:
+      - sentinel-data:/data
+    expose:
+      - "8000"            # reachable by Caddy only; never published to the internet
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - sentinel
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SENTINEL_DOMAIN: ${SENTINEL_DOMAIN:?Set SENTINEL_DOMAIN in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  sentinel-data:
+  caddy-data:
+  caddy-config:
